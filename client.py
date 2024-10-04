@@ -5,7 +5,7 @@ import pickle
 
 # Create a socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect(('server_ip_address', port_number))
+client_socket.connect(('192.168.7.12', 5151))
 
 # Set up the camera
 camera = cv2.VideoCapture(0)  # 0 is usually the default camera
