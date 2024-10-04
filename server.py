@@ -10,7 +10,7 @@ app = Flask(__name__)
 def receive_video_stream():
     # Create a socket to listen for incoming connections
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(('server_ip_address', port_number))
+    server_socket.bind(('192.168.7.12', 5151))
     server_socket.listen(5)
 
     conn, addr = server_socket.accept()
