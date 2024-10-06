@@ -4,6 +4,7 @@ import socket
 import struct
 import pickle
 import time
+import cv2
 import numpy as np
 
 # Initialize pygame camera
@@ -28,11 +29,10 @@ while True:
     if camera.query_image():
         image = camera.get_image()
 
-        # Convert the pygame surface to a NumPy array
+        # Convert image to NumPy array
         image_np = pygame.surfarray.array3d(image)  # Convert pygame surface to NumPy array
-        image_np = np.rot90(image_np)  # Rotate if needed (adjust based on orientation)
-        image_np = np.flipud(image_np)  # Fix axis to match orientation
-        image_np = np.ascontiguousarray(image_np)  # Ensure the array is contiguous for OpenCV
+        image_np = np.rot90(image_np)  # Rotate if needed to match camera orientation
+        image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)  # Convert to BGR for OpenCV
 
         # Serialize the image
         data = pickle.dumps(image_np)
