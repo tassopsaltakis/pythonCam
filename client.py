@@ -4,8 +4,6 @@ import socket
 import struct
 import pickle
 import time
-import cv2
-import numpy as np
 
 # Initialize pygame camera
 pygame.camera.init()
@@ -20,7 +18,7 @@ if not cameras:
 camera = pygame.camera.Camera(cameras[0], (640, 480))
 camera.start()
 
-# Create a socket
+# Create a socket to send video data
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_socket.connect(('192.168.7.12', 7854))  # Send video to port 7854
 
@@ -29,16 +27,12 @@ while True:
     if camera.query_image():
         image = camera.get_image()
 
-        # Convert image to NumPy array
-        image_np = pygame.surfarray.array3d(image)  # Convert pygame surface to NumPy array
-        image_np = np.rot90(image_np)  # Rotate if needed to match camera orientation
-        image_np = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)  # Convert to BGR for OpenCV
+        # Serialize the pygame surface (image) using pickle
+        data = pickle.dumps(image)
 
-        # Serialize the image
-        data = pickle.dumps(image_np)
-
-        # Send the size of the data first
-        client_socket.sendall(struct.pack(">L", len(data)) + data)
+        # Send the size of the data first (so the server knows how much to receive)
+        message_size = struct.pack(">L", len(data))
+        client_socket.sendall(message_size + data)
     else:
         print("No frame captured")
 
