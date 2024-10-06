@@ -20,7 +20,7 @@ camera.start()
 
 # Create a socket
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect(('192.168.7.12', 5151))  # Replace with your server IP and port
+client_socket.connect(('192.168.7.12', 5050))  # Send video to port 5050
 
 while True:
     # Capture an image from the camera

@@ -2,16 +2,14 @@ from flask import Flask, Response
 import socket
 import struct
 import pickle
-import pygame
-import time
+import cv2
 
 app = Flask(__name__)
-
 
 def receive_video_stream():
     # Create a socket to listen for incoming connections
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(('192.168.7.12', 5151))  # Replace with your server IP
+    server_socket.bind(('192.168.7.12', 5050))  # Bind to a different port, e.g., 5050
     server_socket.listen(5)
 
     conn, addr = server_socket.accept()
@@ -35,24 +33,18 @@ def receive_video_stream():
         data = data[msg_size:]
 
         # Deserialize the frame
-        frame_str = pickle.loads(frame_data)
+        frame = pickle.loads(frame_data)
 
-        # Convert string back to image format
-        image = pygame.image.fromstring(frame_str, (640, 480), 'RGB')
-
-        # Convert the image to JPEG format for MJPEG streaming
-        jpeg_image = pygame.image.tostring(image, "RGB")
-
-        # Yield the frame as MJPEG to the web client
+        # Encode the frame as JPEG and yield it for MJPEG streaming
+        _, jpeg = cv2.imencode('.jpg', frame)
+        frame = jpeg.tobytes()
         yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + jpeg_image + b'\r\n\r\n')
-
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n\r\n')
 
 @app.route('/video_feed')
 def video_feed():
     return Response(receive_video_stream(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
-
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5151)  # Flask runs on port 5151
