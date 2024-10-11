@@ -1,43 +1,27 @@
-import pygame
-import pygame.camera
-import socket
-import struct
-import pickle
-import time
+# client.py
+import cv2
+import base64
+import asyncio
+import websockets
 
-# Initialize pygame camera
-pygame.camera.init()
+async def send_video():
+    # Connect to the server WebSocket
+    uri = "ws://localhost:5000/socket.io/"
+    async with websockets.connect(uri) as websocket:
+        video_capture = cv2.VideoCapture(0)  # Use the webcam
+        while True:
+            ret, frame = video_capture.read()
+            if not ret:
+                break
 
-# List available cameras
-cameras = pygame.camera.list_cameras()
-if not cameras:
-    print("No camera found!")
-    exit()
+            # Encode the frame in JPEG format
+            _, buffer = cv2.imencode('.jpg', frame)
+            frame_data = base64.b64encode(buffer).decode('utf-8')
 
-# Start the camera
-camera = pygame.camera.Camera(cameras[0], (640, 480))
-camera.start()
+            # Send the frame data to the server
+            await websocket.send(frame_data)
 
-# Create a socket to send video data
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.connect(('192.168.7.12', 7854))  # Send video to port 7854
+            # Wait for a short period to simulate a video frame rate (e.g., 30 FPS)
+            await asyncio.sleep(0.03)
 
-while True:
-    # Capture an image from the camera
-    if camera.query_image():
-        image = camera.get_image()
-
-        # Serialize the pygame surface (image) using pickle
-        data = pickle.dumps(image)
-
-        # Send the size of the data first (so the server knows how much to receive)
-        message_size = struct.pack(">L", len(data))
-        client_socket.sendall(message_size + data)
-    else:
-        print("No frame captured")
-
-    time.sleep(0.05)  # Optional delay to reduce the load
-
-# Clean up
-camera.stop()
-client_socket.close()
+asyncio.get_event_loop().run_until_complete(send_video())
