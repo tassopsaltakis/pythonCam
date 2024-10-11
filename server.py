@@ -1,32 +1,36 @@
-# server.py
-from flask import Flask, render_template
-from flask_socketio import SocketIO, emit
+# client.py
 import cv2
-import base64
+import imagezmq
 
-app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Initialize the ImageSender (client)
+sender = imagezmq.ImageSender(connect_to="tcp://<server_ip>:5555")
 
+# Replace <server_ip> with the IP address of the server machine
+# Example: "tcp://192.168.1.100:5555"
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+# Open the webcam (0 is usually the default webcam)
+video_capture = cv2.VideoCapture(0)
 
+print("Client started streaming video...")
 
-@socketio.on('video_frame')
-def handle_video_frame(data):
-    # Receive base64 encoded frame from client
-    frame_data = base64.b64decode(data)
-    np_arr = np.frombuffer(frame_data, np.uint8)
-    frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+while True:
+    # Capture frame-by-frame from the webcam
+    ret, frame = video_capture.read()
 
-    # Display frame on the server (for debug purposes)
-    cv2.imshow("Server Stream", frame)
-    cv2.waitKey(1)
+    if not ret:
+        print("Failed to capture frame.")
+        break
 
-    # Emit frame back to the webpage
-    emit('server_video', data)
+    # Send the frame to the server
+    sender.send_image('client_1', frame)
 
+    # Display the frame on the client side as well (optional)
+    cv2.imshow("Client Stream", frame)
 
-if __name__ == "__main__":
-    socketio.run(app, host='0.0.0.0', port=5000)
+    # Press 'q' to quit the client-side stream
+    if cv2.waitKey(1) == ord('q'):
+        break
+
+# Release the webcam and close all windows
+video_capture.release()
+cv2.destroyAllWindows()
