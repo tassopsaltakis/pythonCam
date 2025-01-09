@@ -2,44 +2,31 @@ import cv2
 import imagezmq
 import socket
 
-
-def try_open_facetime_cam():
+def find_working_camera(max_tests=5):
     """
-    Attempt to open the built-in FaceTime camera on macOS by name first,
-    then fall back to index 0 if that fails.
+    Try camera indices from 0..max_tests-1 and return the first that
+    can read a valid frame.
     """
-    # Common names for the built-in camera
-    possible_names = [
-        "FaceTime HD Camera (Built-in)",
-        "FaceTime HD Camera",
-        # Add more variants if needed
-    ]
-
-    # Try each name with the AVFoundation backend
-    for name in possible_names:
-        cap = cv2.VideoCapture(name, cv2.CAP_AVFOUNDATION)
+    for i in range(max_tests):
+        cap = cv2.VideoCapture(i)  # or cv2.VideoCapture(i, cv2.CAP_AVFOUNDATION)
         if cap.isOpened():
-            return cap
-
-    # Fall back to using index=0 with AVFoundation
-    cap = cv2.VideoCapture(0, cv2.CAP_AVFOUNDATION)
-    if cap.isOpened():
-        return cap
-
-    # If none worked, return None
+            ret, frame = cap.read()
+            if ret:
+                print(f"Using camera index {i}")
+                return cap
+            cap.release()
     return None
-
 
 def main():
     client_name = socket.gethostname()
-    sender = imagezmq.ImageSender(connect_to="tcp://192.168.7.176:5555")
+    sender = imagezmq.ImageSender(connect_to="tcp://192.168.7.12:5555")
 
-    cap = try_open_facetime_cam()
-    if not cap or not cap.isOpened():
-        print("Error: Could not open the built-in FaceTime camera.")
-        exit(1)
+    cap = find_working_camera(max_tests=5)
+    if not cap:
+        print("Error: Could not find a working camera among indices 0..4.")
+        return
 
-    print(f"Client '{client_name}' started streaming from the built-in FaceTime camera...")
+    print(f"Client '{client_name}' started streaming video...")
 
     try:
         while True:
@@ -60,7 +47,6 @@ def main():
     finally:
         cap.release()
         cv2.destroyAllWindows()
-
 
 if __name__ == "__main__":
     main()
