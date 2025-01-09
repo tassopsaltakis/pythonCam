@@ -1,41 +1,66 @@
-# client.py
 import cv2
 import imagezmq
 import socket
 
-# Grab the machine's hostname as the client name
-client_name = socket.gethostname()
 
-# Initialize the ImageSender (client) - change IP as needed
-sender = imagezmq.ImageSender(connect_to="tcp://192.168.7.176:5555")
+def try_open_facetime_cam():
+    """
+    Attempt to open the built-in FaceTime camera on macOS by name first,
+    then fall back to index 0 if that fails.
+    """
+    # Common names for the built-in camera
+    possible_names = [
+        "FaceTime HD Camera (Built-in)",
+        "FaceTime HD Camera",
+        # Add more variants if needed
+    ]
 
-# Attempt to open the default camera (index=0)
-video_capture = cv2.VideoCapture(0)
-if not video_capture.isOpened():
-    print("Error: Could not open default camera (index 0). Make sure a camera is connected.")
-    exit(1)
+    # Try each name with the AVFoundation backend
+    for name in possible_names:
+        cap = cv2.VideoCapture(name, cv2.CAP_AVFOUNDATION)
+        if cap.isOpened():
+            return cap
 
-print(f"Client '{client_name}' started streaming video...")
+    # Fall back to using index=0 with AVFoundation
+    cap = cv2.VideoCapture(0, cv2.CAP_AVFOUNDATION)
+    if cap.isOpened():
+        return cap
 
-try:
-    while True:
-        # Read a frame from the webcam
-        ret, frame = video_capture.read()
+    # If none worked, return None
+    return None
 
-        if not ret:
-            print("Failed to capture frame from default camera.")
-            break
 
-        # Send the frame to the server
-        sender.send_image(client_name, frame)
+def main():
+    client_name = socket.gethostname()
+    sender = imagezmq.ImageSender(connect_to="tcp://192.168.7.176:5555")
 
-        # (Optional) Display the frame locally
-        cv2.imshow("Client Stream", frame)
+    cap = try_open_facetime_cam()
+    if not cap or not cap.isOpened():
+        print("Error: Could not open the built-in FaceTime camera.")
+        exit(1)
 
-        # Press 'q' to quit the client-side stream
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-finally:
-    # Release resources
-    video_capture.release()
-    cv2.destroyAllWindows()
+    print(f"Client '{client_name}' started streaming from the built-in FaceTime camera...")
+
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print("Failed to capture frame from camera.")
+                break
+
+            # Send the frame to the server
+            sender.send_image(client_name, frame)
+
+            # (Optional) Show the frame locally
+            cv2.imshow("Client Stream", frame)
+
+            # Press 'q' to quit the client-side stream
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()
