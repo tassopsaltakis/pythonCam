@@ -7,7 +7,7 @@ import socket
 client_name = socket.gethostname()
 
 # Initialize the ImageSender (client) - change IP as needed
-sender = imagezmq.ImageSender(connect_to="tcp://192.168.7.12:5555")
+sender = imagezmq.ImageSender(connect_to="tcp://192.168.7.176:5555")
 
 # Attempt to open the default camera (index=0)
 video_capture = cv2.VideoCapture(0)
