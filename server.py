@@ -1,6 +1,8 @@
 # server.py
+
 import cv2
 import imagezmq
+import time
 from tkinter import *
 from PIL import Image, ImageTk
 import threading
@@ -9,10 +11,10 @@ import queue
 def main():
     print("Starting Video Stream Server...")
 
-    # Initialize the ImageHub (listen on port 5555)
+    # Initialize the ImageHub (listen on port 5555 on all interfaces)
     try:
-        image_hub = imagezmq.ImageHub(open_port='tcp://192.168.7.176:5555')
-        print("ImageHub initialized, listening on port 5555.")
+        image_hub = imagezmq.ImageHub(open_port='tcp://*:5555')
+        print("ImageHub initialized, listening on port 5555 (all interfaces).")
     except Exception as e:
         print(f"Failed to initialize ImageHub: {e}")
         return
@@ -107,8 +109,8 @@ def main():
     def update_grid():
         """
         In Grid view, update each client's Label with the latest frame.
-        We'll use a simple 2-column layout as an example.
-        Adjust as needed (e.g., 3 columns, 4 columns).
+        We'll use a simple 2-column layout as an example and
+        resize each stream to a fixed size so they fit nicely.
         """
         try:
             # Remove any old grids or pack layout
@@ -116,11 +118,32 @@ def main():
                 widget.pack_forget()
                 widget.grid_forget()
 
+            # Sort clients by name or any logic you prefer
             sorted_clients = list(clients.keys())
             columns = 2  # Number of columns in the grid
 
+            # Define a fixed size (width x height) for each thumbnail in grid
+            target_width = 320
+            target_height = 240
+
             for idx, client_name in enumerate(sorted_clients):
                 frame = clients[client_name]
+
+                # Resize the frame so all streams have a consistent size in Grid view
+                try:
+                    resized_frame = cv2.resize(
+                        frame,
+                        (target_width, target_height),
+                        interpolation=cv2.INTER_AREA
+                    )
+                except Exception as resize_err:
+                    log_message(f"Error resizing frame for {client_name}: {resize_err}")
+                    continue
+
+                # Convert frame to Tkinter-friendly image
+                frame_rgb = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
+                im = Image.fromarray(frame_rgb)
+                img = ImageTk.PhotoImage(image=im)
 
                 # Create a Label if it doesn't exist yet
                 if client_name not in client_labels:
@@ -129,10 +152,6 @@ def main():
                 else:
                     label = client_labels[client_name]
 
-                # Convert frame to Tkinter-friendly image
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                im = Image.fromarray(frame_rgb)
-                img = ImageTk.PhotoImage(image=im)
                 label.imgtk = img
                 label.configure(image=img)
 
@@ -140,6 +159,7 @@ def main():
                 row = idx // columns
                 col = idx % columns
                 label.grid(row=row, column=col, padx=5, pady=5)
+
         except Exception as e:
             log_message(f"Error updating grid: {e}")
 
@@ -178,8 +198,10 @@ def main():
                 # Hide all grid labels
                 for lbl in client_labels.values():
                     lbl.grid_forget()
+
                 # Show the single view label
                 video_label.pack()
+
                 if current_client:
                     status_label.config(text=f"Displaying stream from {current_client}")
                 else:
@@ -200,6 +222,7 @@ def main():
         """
         nonlocal current_client
         log_message("Image receiving thread started.")
+
         while True:
             try:
                 # Receive frame from client
@@ -221,9 +244,12 @@ def main():
 
                 # Send acknowledgment back to the client
                 image_hub.send_reply(b'OK')
+
             except Exception as e:
                 log_message(f"Error receiving image: {e}")
-                break
+                # Do NOT break; just briefly sleep to avoid tight loop on error.
+                time.sleep(0.5)
+                continue
 
     def refresh_gui():
         """
@@ -248,14 +274,26 @@ def main():
                     update_grid()
         except Exception as e:
             log_message(f"Error in refresh_gui: {e}")
+
         # Schedule the next refresh
         root.after(30, refresh_gui)  # Adjust the delay as needed (milliseconds)
 
     # Create Radio Buttons to toggle between 'Single' and 'Grid' view
-    single_rb = Radiobutton(top_frame, text="Single View", variable=view_mode, value='Single',
-                            command=toggle_view_mode)
-    grid_rb = Radiobutton(top_frame, text="Grid View", variable=view_mode, value='Grid',
-                          command=toggle_view_mode)
+    single_rb = Radiobutton(
+        top_frame,
+        text="Single View",
+        variable=view_mode,
+        value='Single',
+        command=toggle_view_mode
+    )
+    grid_rb = Radiobutton(
+        top_frame,
+        text="Grid View",
+        variable=view_mode,
+        value='Grid',
+        command=toggle_view_mode
+    )
+
     single_rb.pack(side=LEFT, padx=5)
     grid_rb.pack(side=LEFT, padx=5)
 
