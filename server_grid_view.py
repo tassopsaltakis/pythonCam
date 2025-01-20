@@ -1,4 +1,4 @@
-# server.py
+# server_grid_view.py
 
 import cv2
 import imagezmq
